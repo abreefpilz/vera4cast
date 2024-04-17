@@ -27,7 +27,7 @@ target_generation_inflow_daily <- function(current_data_file, edi_data_file){
                  names_to='variable',
                  values_to='observation')%>%
     # rename the observations in the variable column to get rid of the specific sensor name
-    mutate(variable=ifelse(grepl('Flow', variable), "Flow_cms", ifelse(grepl('Temp', variable), "Inflow_Temp_cms", NA)))%>%
+    mutate(variable=ifelse(grepl('Flow', variable), "Flow_cms_mean", ifelse(grepl('Temp', variable), "Inflow_Temp_C", NA)))%>%
     mutate(Date=as.Date(DateTime))%>%  # Gets column of just the date
     group_by(Reservoir,variable,Date)%>% # average if there are more than one sample taken during that day
     summarise_if(is.numeric, mean, na.rm = TRUE)%>%
