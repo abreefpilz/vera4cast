@@ -1,7 +1,7 @@
 # Function for generating the targets file for mean daily fluxes from EddyFlux
 # Author: Adrienne Breef-Pilz
 # Created: 8 Sep 2023
-# Edited: 29 March 2024 - fix column name issues and timzone issues
+# Edited: 04 June 2024 - add the daily cut off. Each day much have 24 fluxes to keep the mean
 
 install.packages('pacman')
 pacman::p_load("tidyverse","lubridate")
@@ -198,10 +198,16 @@ generate_EddyFlux_ghg_targets_function <- function(flux_current_data_file,
     select(date, CO2_med_flux, ch4_med_flux)%>%
     dplyr::rename(CO2flux_umolm2s_mean = CO2_med_flux,
                   CH4flux_umolm2s_mean = ch4_med_flux)%>%  # rename columns
-
-    group_by(date)%>% # average if there are more than one sample taken during that day
-    summarise_if(is.numeric, mean, na.rm = TRUE)%>%
+  pivot_longer(cols=c(co2flux_umolm2s_mean, ch4flux_umolm2s_mean), # make the wide data frame into a long one so each observation has a depth
+                 names_to='variable',
+                 values_to='observation')%>%
+    drop_na(observation) %>% # filters out fluxes that are NAs to get a better count of usable fluxes
+    group_by(date, variable)%>%
+    summarise(
+      count = n(),
+      observation= mean(observation, na.rm=TRUE)) %>% # count how many fluxes per a day we have and then calculate the mean
     ungroup()%>%
+    filter(count >= 24)%>% # filter out observations that have less than 24 observations
     drop_na(date)%>% # drop when we have timezone issues with daylight savings
     mutate(datetime=(paste0(date," ","00:00:00")))%>%
     #drop_na(datetime) %>%
@@ -210,9 +216,6 @@ generate_EddyFlux_ghg_targets_function <- function(flux_current_data_file,
     select(-date)%>%
     rename(site_id=Reservoir, # rename the columns for standard notation
            depth_m=Depth_m)%>%
-    pivot_longer(cols=c(CO2flux_umolm2s_mean, CH4flux_umolm2s_mean), # make the wide data frame into a long one so each observation has a depth
-                 names_to='variable',
-                 values_to='observation')%>%
     mutate(duration = 'P1D') |>
     select(c('datetime', 'site_id', 'depth_m', "observation", 'variable', 'duration')) # rearrange order of columns
 
