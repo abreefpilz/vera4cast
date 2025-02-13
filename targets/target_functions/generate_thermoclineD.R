@@ -3,7 +3,8 @@ library(rLakeAnalyzer)
 
 generate_thermocline_depth <- function(current_file, historic_file) {
   options(dplyr.summarise.inform = FALSE)
-  source('R/find_depths.R')
+  # use the function from GitHub 
+  source('https://raw.githubusercontent.com/LTREB-reservoirs/vera4cast/refs/heads/main/targets/target_functions/find_depths.R')
 
   ## Read in current data
   # Github, Googlesheet, etc.
