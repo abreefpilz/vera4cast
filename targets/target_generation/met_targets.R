@@ -11,8 +11,8 @@ s3_hourly <- arrow::s3_bucket("bio230121-bucket01/vera4cast/targets/project_id=v
 
 duckdbfs::duckdb_secrets(
   endpoint = 'amnh1.osn.mghpcc.org',
-  key = Sys.getenv("OSN_KEY"),
-  secret = Sys.getenv("OSN_SECRET"))
+  key = Sys.getenv("AWS_ACCESS_KEY_ID"),
+  secret = Sys.getenv("AWS_SECRET_ACCESS_KEY"))
 
 column_names <- c("project_id", "site_id","datetime","duration", "depth_m","variable","observation")
 
