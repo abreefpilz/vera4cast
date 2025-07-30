@@ -5,6 +5,11 @@ s3 <- arrow::s3_bucket("bio230121-bucket01", endpoint_override = "amnh1.osn.mghp
 s3$CreateDir("vera4cast/targets/duration=P1D")
 s3$CreateDir("vera4cast/targets/duration=PT1H")
 
+duckdbfs::duckdb_secrets(
+  endpoint = 'amnh1.osn.mghpcc.org',
+  key = Sys.getenv("OSN_KEY"),
+  secret = Sys.getenv("OSN_SECRET"))
+
 s3_daily <- arrow::s3_bucket("bio230121-bucket01/vera4cast/targets/project_id=vera4cast/duration=P1D", endpoint_override = "amnh1.osn.mghpcc.org")
 s3_hourly <- arrow::s3_bucket("bio230121-bucket01/vera4cast/targets/project_id=vera4cast/duration=PT1H", endpoint_override = "amnh1.osn.mghpcc.org")
 
@@ -175,8 +180,10 @@ if (nrow(combined_dup_check) != 0){
   stop()
 }
 
-arrow::write_csv_arrow(combined_targets_deduped, sink = s3_daily$path("daily-insitu-targets.csv.gz"))
-
+#arrow::write_csv_arrow(combined_targets_deduped, sink = s3_daily$path("daily-insitu-targets.csv.gz"))
+duckdbfs::write_dataset(combined_targets_deduped,
+                        path = "s3://bio230121-bucket01/vera4cast/targets/project_id=vera4cast/duration=P1D/daily-insitu-targets.csv.gz",
+                        format = 'csv')
 
 
 ## HOURLY INSITU (TEMPERATURE)
@@ -205,4 +212,7 @@ bvr_thermistor_temp_hourly$project_id <- 'vera4cast'
 s3_hourly <- arrow::s3_bucket("bio230121-bucket01/vera4cast/targets/project_id=vera4cast/duration=PT1H", endpoint_override = "amnh1.osn.mghpcc.org")
 vera_hourly_thermistor_df <- dplyr::bind_rows(fcr_thermistor_temp_hourly, bvr_thermistor_temp_hourly)
 
-arrow::write_csv_arrow(vera_hourly_thermistor_df, sink = s3_hourly$path("hourly-insitu-targets.csv.gz"))
+#arrow::write_csv_arrow(vera_hourly_thermistor_df, sink = s3_hourly$path("hourly-insitu-targets.csv.gz"))
+duckdbfs::write_dataset(combined_targets_deduped,
+                        path = "s3://bio230121-bucket01/vera4cast/targets/project_id=vera4cast/duration=PT1H/hourly-insitu-targets.csv.gz",
+                        format = 'csv')
