@@ -1,8 +1,8 @@
 # Workflow derived from https://github.com/r-lib/actions/tree/v2/examples
 # Need help debugging build failures? Start at https://github.com/r-lib/actions#where-to-find-help
 on:
-  #schedule:
-  #  - cron: '0 0 * * *'
+  schedule:
+    - cron: '0 0 * * *'
   workflow_dispatch:
 
 name: scoring
@@ -17,6 +17,12 @@ jobs:
       OSN_SECRET: ${{ secrets.OSN_SECRET }}
     container: rqthomas/vera-rocker:latest
     steps:
+
+      - name: cleanup disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          df -h
+
       - uses: actions/checkout@v4
 
       - name: Install
@@ -24,17 +30,16 @@ jobs:
         run: |
           remotes::install_deps(".", dep=TRUE)
 
-      - name: Generate scores
-        shell: Rscript {0}
-        run: |
-          source("scoring/scoring.R")
+      - name: install
+        run: R -e "install.packages(c('bench', 'duckdbfs', 'minioclient', 'callr')); remotes::install_github('eco4cast/score4cast')"
+
+      - name: scoring-prep
+        run: r scoring/prep_scoring.R
+
+      - name: scoring
+        run: r scoring/new_scoring.R
 
       - name: install curl
         run: |
           sudo apt-get update
           sudo apt-get install -y curl
-
-      - name: Update inventory
-        shell: Rscript {0}
-        run: |
-          source("scoring/build_score_inventory.R")

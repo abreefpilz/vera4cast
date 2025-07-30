@@ -45,6 +45,11 @@ if(length(submissions) > 0){
   Sys.unsetenv("AWS_S3_ENDPOINT")
   Sys.setenv(AWS_EC2_METADATA_DISABLED="TRUE")
 
+  duckdbfs::duckdb_secrets(
+    endpoint = config$endpoint,
+    key = Sys.getenv("OSN_KEY"),
+    secret = Sys.getenv("OSN_SECRET"))
+
   s3 <- arrow::s3_bucket(config$forecasts_bucket,
                          endpoint_override = config$endpoint,
                          access_key = Sys.getenv("OSN_KEY"),
@@ -106,24 +111,40 @@ if(length(submissions) > 0){
 
         print(head(fc))
         s3$CreateDir(paste0("parquet/"))
-        fc |> arrow::write_dataset(s3$path(paste0("parquet")), format = 'parquet',
-                            partitioning = c("project_id",
-                                             "duration",
-                                             "variable",
-                                             "model_id",
-                                             "reference_date"))
+        # fc |> arrow::write_dataset(s3$path(paste0("parquet")), format = 'parquet',
+        #                     partitioning = c("project_id",
+        #                                      "duration",
+        #                                      "variable",
+        #                                      "model_id",
+        #                                      "reference_date"))
+
+        ## arrow write has gone nuts... let's update
+        fc |> duckdbfs::write_dataset(paste0("s3://", config$forecasts_bucket, "/parquet"),
+                                      format = 'parquet',
+                                      partitioning = c("project_id",
+                                                       "duration",
+                                                       "variable",
+                                                       "model_id",
+                                                       "reference_date"))
+
         s3$CreateDir(paste0("summaries"))
         fc |>
           dplyr::summarise(prediction = mean(prediction), .by = dplyr::any_of(c("site_id", "datetime", "reference_datetime", "family", "depth_m", "duration", "model_id",
                                                                                 "parameter", "pub_datetime", "reference_date", "variable", "project_id"))) |>
           score4cast::summarize_forecast(extra_groups = c("duration", "project_id", "depth_m")) |>
           dplyr::mutate(reference_date = lubridate::as_date(reference_datetime)) |>
-          arrow::write_dataset(s3$path("summaries"), format = 'parquet',
-                               partitioning = c("project_id",
-                                                "duration",
-                                                "variable",
-                                                "model_id",
-                                                "reference_date"))
+          # arrow::write_dataset(s3$path("summaries"), format = 'parquet',
+          #                      partitioning = c("project_id",
+          #                                       "duration",
+          #                                       "variable",
+          #                                       "model_id",
+          #                                       "reference_date"))
+          duckdbfs::write_dataset(paste0("s3://", config$forecasts_bucket, "/summaries"), format = 'parquet',
+                                  partitioning = c("project_id",
+                                                   "duration",
+                                                   "variable",
+                                                   "model_id",
+                                                   "reference_date"))
 
         submission_timestamp <- paste0(submission_dir,"/T", time_stamp, "_", basename(submissions[i]))
         fs::file_copy(submissions[i], submission_timestamp)

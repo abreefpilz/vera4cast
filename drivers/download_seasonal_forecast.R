@@ -8,10 +8,12 @@ download_seasonal_forecast <- function(){
 
   s3$CreateDir("drivers/met/ensemble_forecast")
 
-  s3 <- arrow::s3_bucket("bio230121-bucket01/flare/drivers/met/seasonal_forecast",
-                         endpoint_override = "amnh1.osn.mghpcc.org",
-                         access_key = Sys.getenv("OSN_KEY"),
-                         secret_key = Sys.getenv("OSN_SECRET"))
+  # s3 <- arrow::s3_bucket("bio230121-bucket01/flare/drivers/met/seasonal_forecast",
+  #                        endpoint_override = "amnh1.osn.mghpcc.org",
+  #                        access_key = Sys.getenv("OSN_KEY"),
+  #                        secret_key = Sys.getenv("OSN_SECRET"))
+
+  duckdbfs::duckdb_secrets(endpoint = "amnh1.osn.mghpcc.org", key = Sys.getenv("OSN_KEY"), secret = Sys.getenv("OSN_SECRET"), bucket = "bio230121-bucket01")
 
   site_list <- readr::read_csv("https://raw.githubusercontent.com/FLARE-forecast/aws_noaa/master/site_list_v2.csv", show_col_types = FALSE)
 
@@ -31,8 +33,11 @@ download_seasonal_forecast <- function(){
       variables = ropenmeteo::glm_variables(product = "seasonal_forecast",
                                             time_step = "6hourly")) |>
       dplyr::mutate(reference_date = lubridate::as_date(reference_datetime)) |>
-      arrow::write_dataset(s3, format = 'parquet',
-                           partitioning = c("model_id", "reference_date", "site_id"))
+      duckdbfs::write_dataset(path = 's3://bio230121-bucket01/flare/drivers/met/seasonal_forecast',
+                              format = 'parquet',
+                              partitioning = c("model_id", "reference_date", "site_id"))
+      # arrow::write_dataset(s3, format = 'parquet',
+      #                      partitioning = c("model_id", "reference_date", "site_id"))
     Sys.sleep(10)
 
   }

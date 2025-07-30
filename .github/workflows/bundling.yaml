@@ -1,19 +1,20 @@
 # Workflow derived from https://github.com/r-lib/actions/tree/v2/examples
 # Need help debugging build failures? Start at https://github.com/r-lib/actions#where-to-find-help
 on:
-  #schedule:
-  #  - cron: '0 7 * * *'
+  schedule:
+    - cron: '0 7 * * *'
   workflow_dispatch:
 
 name: bundling
 
 jobs:
-  scores:
+  bundle:
     runs-on:  ubuntu-latest
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       OSN_KEY: ${{ secrets.OSN_KEY }}
       OSN_SECRET: ${{ secrets.OSN_SECRET }}
+    #container: ghcr.io/boettiger-lab/k8s@sha256:fd02edfb4318afe022f8a732a99d93df7127dadb2bb4e208e36a86f96c2f45c6
     container: rqthomas/vera-rocker:latest
     steps:
       - uses: actions/checkout@v4
@@ -21,10 +22,11 @@ jobs:
       - name: Install
         shell: Rscript {0}
         run: |
-          print(options("repos"))
-          remotes::install_deps(".", dep=TRUE)
+          remotes::install_deps(".", dep=TRUE, upgrade=TRUE)
+          install.packages(c("future.apply", "progressr", "minioclient", "bench", "glue", "fs"))
 
-      - name: Generate bundles
-        shell: Rscript {0}
-        run: |
-          source("submission_processing/bundled-parquet.R")
+      - name: Bundle forecasts
+        run: r submission_processing/bundle-forecasts.R
+
+      - name: Bundle summaries
+        run: r submission_processing/bundle-summaries.R
