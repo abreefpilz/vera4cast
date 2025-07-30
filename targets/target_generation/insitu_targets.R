@@ -7,8 +7,8 @@ s3$CreateDir("vera4cast/targets/duration=PT1H")
 
 duckdbfs::duckdb_secrets(
   endpoint = 'amnh1.osn.mghpcc.org',
-  key = Sys.getenv("OSN_KEY"),
-  secret = Sys.getenv("OSN_SECRET"))
+  key = Sys.getenv("AWS_ACCESS_KEY_ID"),
+  secret = Sys.getenv("AWS_SECRET_ACCESS_KEY"))
 
 s3_daily <- arrow::s3_bucket("bio230121-bucket01/vera4cast/targets/project_id=vera4cast/duration=P1D", endpoint_override = "amnh1.osn.mghpcc.org")
 s3_hourly <- arrow::s3_bucket("bio230121-bucket01/vera4cast/targets/project_id=vera4cast/duration=PT1H", endpoint_override = "amnh1.osn.mghpcc.org")
