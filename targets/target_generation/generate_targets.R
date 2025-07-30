@@ -6,6 +6,11 @@ s3 <- arrow::s3_bucket("bio230121-bucket01", endpoint_override = "amnh1.osn.mghp
 s3$CreateDir("vera4cast/targets/duration=P1D")
 s3$CreateDir("vera4cast/targets/duration=PT1H")
 
+duckdbfs::duckdb_secrets(
+  endpoint = 'amnh1.osn.mghpcc.org',
+  key = Sys.getenv("OSN_KEY"),
+  secret = Sys.getenv("OSN_SECRET"))
+
 s3_daily <- arrow::s3_bucket("bio230121-bucket01/vera4cast/targets/project_id=vera4cast/duration=P1D", endpoint_override = "amnh1.osn.mghpcc.org")
 s3_hourly <- arrow::s3_bucket("bio230121-bucket01/vera4cast/targets/project_id=vera4cast/duration=PT1H", endpoint_override = "amnh1.osn.mghpcc.org")
 
@@ -33,7 +38,7 @@ exo_daily$project_id <- 'vera4cast'
 print('Fluoroprobe')
 source('targets/target_functions/target_generation_FluoroProbe.R')
 historic_data <- "https://pasta.lternet.edu/package/data/eml/edi/272/9/f246b36c591a888cc70ebc87a5abbcb7"
-current_data <- "https://raw.githubusercontent.com/CareyLabVT/Reservoirs/master/Data/DataNotYetUploadedToEDI/Raw_fluoroprobe/fluoroprobe_L1.csv"
+current_data <- "https://raw.githubusercontent.com/CareyLabVT/Reservoirs/master/Data/DataNotYetUploadedToEDI/FluoroProbe/fluoroprobe_L1.csv"
 
 fluoro_daily <- target_generation_FluoroProbe(current_file = current_data, historic_file = historic_data)
 fluoro_daily$duration <- 'P1D'
@@ -166,7 +171,7 @@ mixed_binary_targets_hourly <- dplyr::bind_rows(target_generation_mixed_binary_h
 ## combine the data and perform final adjustments (depth, etc.)
 
 combined_targets <- bind_rows(exo_daily, fluoro_daily, fcr_thermistor_temp_daily, bvr_thermistor_temp_daily, secchi_daily,
-                              mom_daily_targets, thermocline_depth, schmidt_stability, eddy_flux, chem_data, ghg_data, mixed_binary_targets,
+                              mom_daily_targets, thermocline_depth, schmidt_stability, eddy_flux, chem_data, ghg_data, mixed_binary_targets_daily,
                               metals_daily_targets, mom_bounds_daily_targets) |>
   select(all_of(column_names))
 
@@ -189,7 +194,11 @@ if (nrow(combined_dup_check) != 0){
   stop()
 }
 
-arrow::write_csv_arrow(combined_targets_deduped, sink = s3_daily$path("daily-insitu-targets.csv.gz"))
+#arrow::write_csv_arrow(combined_targets_deduped, sink = s3_daily$path("daily-insitu-targets.csv.gz"))
+
+duckdbfs::write_dataset(combined_targets_deduped,
+                        path = "s3://bio230121-bucket01/vera4cast/targets/project_id=vera4cast/duration=P1D/daily-insitu-targets.csv.gz",
+                        format = 'csv')
 
 
 # ## HOURLY INSITU (TEMPERATURE)
@@ -245,8 +254,10 @@ inflow_daily <- target_generation_inflows(historic_inflow = historic_inflow,
 
 inflow_daily <- inflow_daily |> select(column_names)
 
-arrow::write_csv_arrow(inflow_daily, sink = s3_daily$path("daily-inflow-targets.csv.gz"))
-
+#arrow::write_csv_arrow(inflow_daily, sink = s3_daily$path("daily-inflow-targets.csv.gz"))
+duckdbfs::write_dataset(inflow_daily,
+                        path = "s3://bio230121-bucket01/vera4cast/targets/project_id=vera4cast/duration=P1D/daily-inflow-targets.csv.gz",
+                        format = 'csv')
 
 # MET TARGETS
 print('Met Targets')
@@ -260,11 +271,17 @@ met_daily <- target_generation_met(current_met = current_met, historic_met = his
 met_daily <- met_daily |>
   select(all_of(column_names))
 
-arrow::write_csv_arrow(met_daily, sink = s3_daily$path("daily-met-targets.csv.gz"))
+#arrow::write_csv_arrow(met_daily, sink = s3_daily$path("daily-met-targets.csv.gz"))
+duckdbfs::write_dataset(met_daily,
+                        path = "s3://bio230121-bucket01/vera4cast/targets/project_id=vera4cast/duration=P1D/daily-met-targets.csv.gz",
+                        format = 'csv')
 
 met_hourly <- target_generation_met(current_met = current_met, historic_met = historic_met, time_interval = 'hourly')
 
 met_hourly <- met_hourly |>
   select(all_of(column_names))
 
-arrow::write_csv_arrow(met_hourly, sink = s3_hourly$path("hourly-met-targets.csv.gz"))
+#arrow::write_csv_arrow(met_hourly, sink = s3_hourly$path("hourly-met-targets.csv.gz"))
+duckdbfs::write_dataset(met_hourly,
+                        path = "s3://bio230121-bucket01/vera4cast/targets/project_id=vera4cast/duration=PT1H/hourly-met-targets.csv.gz",
+                        format = 'csv')

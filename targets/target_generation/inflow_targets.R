@@ -6,6 +6,11 @@ s3 <- arrow::s3_bucket("bio230121-bucket01", endpoint_override = "amnh1.osn.mghp
 #s3$CreateDir("vera4cast/targets/duration=P1D")
 #s3$CreateDir("vera4cast/targets/duration=PT1H")
 
+duckdbfs::duckdb_secrets(
+  endpoint = 'amnh1.osn.mghpcc.org',
+  key = Sys.getenv("OSN_KEY"),
+  secret = Sys.getenv("OSN_SECRET"))
+
 s3_daily <- arrow::s3_bucket("bio230121-bucket01/vera4cast/targets/project_id=vera4cast/duration=P1D", endpoint_override = "amnh1.osn.mghpcc.org")
 s3_hourly <- arrow::s3_bucket("bio230121-bucket01/vera4cast/targets/project_id=vera4cast/duration=PT1H", endpoint_override = "amnh1.osn.mghpcc.org")
 
@@ -37,4 +42,7 @@ inflow_daily <- target_generation_inflows(historic_inflow = historic_inflow,
 
 inflow_daily <- inflow_daily |> select(column_names)
 
-arrow::write_csv_arrow(inflow_daily, sink = s3_daily$path("daily-inflow-targets.csv.gz"))
+#arrow::write_csv_arrow(inflow_daily, sink = s3_daily$path("daily-inflow-targets.csv.gz"))
+duckdbfs::write_dataset(inflow_daily,
+                        path = "s3://bio230121-bucket01/vera4cast/targets/project_id=vera4cast/duration=P1D/daily-inflow-targets.csv.gz",
+                        format = 'csv')
