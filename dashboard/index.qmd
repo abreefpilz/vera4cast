@@ -27,21 +27,33 @@ sites <- suppressMessages(sf::st_read("sites.json"))
 s3 <- arrow::s3_bucket(file.path(config$forecasts_bucket, "bundled-summaries", "project_id=vera4cast", "duration=P1D"), endpoint_override = config$endpoint, anonymous = TRUE)
 
 #s3_inventory <- arrow::s3_bucket(paste0(config$inventory_bucket, "/catalog/forecasts/project_id=", config$project_id), endpoint_override = config$endpoint, anonymous = TRUE)
-n_forecasts <- arrow::open_dataset(s3) |> distinct(model_id, reference_date) |> collect() |> nrow()
-n_models <- arrow::open_dataset(s3) |> distinct(model_id) |> collect() |> nrow()
+n_forecasts <- duckdbfs::open_dataset(paste0("s3://",config$forecasts_bucket,
+                                                     "/bundled-summaries/project_id=", 
+                                                     config$project_id, "/duration=P1D"),
+                                              s3_endpoint = "amnh1.osn.mghpcc.org",
+                                              anonymous = TRUE) |> 
+  #arrow::open_dataset(s3) |> 
+  distinct(model_id, reference_date) |> collect() |> nrow()
+n_models <- duckdbfs::open_dataset(paste0("s3://",config$forecasts_bucket,
+                                                     "/bundled-summaries/project_id=", 
+                                                     config$project_id, "/duration=P1D"),
+                                              s3_endpoint = "amnh1.osn.mghpcc.org",
+                                              anonymous = TRUE)  |> #arrow::open_dataset(s3) |>
+  distinct(model_id) |> collect() |> nrow()
 
-s3_targets <- arrow::s3_bucket(config$targets_bucket, endpoint_override = config$endpoint, anonymous = TRUE)
+s3_targets <- arrow::s3_bucket(paste0(config$targets_bucket,"/project_id=vera4cast/duration=P1D/daily-insitu-targets.csv.gz"), endpoint_override = config$endpoint, anonymous = TRUE)
 
-most_recent_targets <- arrow::open_csv_dataset(s3_targets,
-                                    schema = arrow::schema(
-                                      project_id = arrow::string(),
-                                      site_id = arrow::string(),
-                                      datetime = arrow::timestamp(unit = "ns", timezone = "UTC"),
-                                      duration = arrow::string(),
-                                      depth_m = arrow::float(),
-                                      variable = arrow::string(),
-                                      observation = arrow::float()),
-                                    skip = 1) |>
+# most_recent_targets <- arrow::open_csv_dataset(s3_targets,
+#                                     schema = arrow::schema(
+#                                       project_id = arrow::string(),
+#                                       site_id = arrow::string(),
+#                                       datetime = arrow::timestamp(unit = "ns", timezone = "UTC"),
+#                                       duration = arrow::string(),
+#                                       depth_m = arrow::float(),
+#                                       variable = arrow::string(),
+#                                       observation = arrow::float()),
+#                                     skip = 1) |>
+most_recent <- read_csv('https://amnh1.osn.mghpcc.org/bio230121-bucket01/vera4cast/targets/project_id=vera4cast/duration=P1D/daily-insitu-targets.csv.gz') |> 
   filter(project_id == config$project_id) |> 
     summarize(max = max(datetime),
               min = min(datetime)) |> 
@@ -49,8 +61,13 @@ most_recent_targets <- arrow::open_csv_dataset(s3_targets,
            min = lubridate::as_date(min)) |> 
     dplyr::collect()
 
-s3 <- arrow::s3_bucket(paste0(config$forecasts_bucket, "/bundled-summaries/project_id=", config$project_id, "/duration=P1D"), endpoint_override = config$endpoint, anonymous = TRUE)
-unique_forecasted_targets <- arrow::open_dataset(s3)|> 
+unique_forecasted_targets <- duckdbfs::open_dataset(paste0("s3://",config$forecasts_bucket,
+                                                     "/bundled-summaries/project_id=", 
+                                                     config$project_id, "/duration=P1D"),
+                                              s3_endpoint = "amnh1.osn.mghpcc.org",
+                                              anonymous = TRUE) |> 
+  #arrow::s3_bucket(paste0(config$forecasts_bucket, "/bundled-summaries/project_id=", config$project_id, "/duration=P1D"), endpoint_override = config$endpoint, anonymous = TRUE)
+#unique_forecasted_targets <- arrow::open_dataset(s3)|> 
   dplyr::distinct(variable) |> dplyr::count() |> 
     dplyr::collect() |> 
     dplyr::pull(n)
