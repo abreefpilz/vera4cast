@@ -15,6 +15,7 @@ source("R/plot-utils.R")
 #source("../R/ignore_sigpipes.R")
 #ignore_sigpipe()
 
+score4cast::ignore_sigpipe()
 
 ```
 
@@ -31,7 +32,8 @@ s3 <- arrow::s3_bucket(paste0(config$forecasts_bucket, "/bundled-summaries/proje
 
 s3_scores <- arrow::s3_bucket(file.path(paste0(config$scores_bucket), "bundled-parquet"), endpoint_override = config$endpoint, anonymous = TRUE)
 
-reference_datetimes <- duckdbfs::open_dataset(paste0("s3://",config$forecasts_bucket,
+reference_datetimes <- 
+  duckdbfs::open_dataset(paste0("s3://",config$forecasts_bucket,
                                                      "/bundled-summaries/project_id=", 
                                                      config$project_id, "/duration=P1D"),
                                               s3_endpoint = "amnh1.osn.mghpcc.org",
@@ -231,7 +233,9 @@ Click [here](performance_variables.qmd) to view the baseline forecasts for the c
 
 ## Forecast analysis
 
-```{r}
+```{r scores}
+rm(df)
+
 df <- duckdbfs::open_dataset(paste0("s3://",config$scores_bucket,
                                                      "/bundled-parquet/"),
                                               s3_endpoint = "amnh1.osn.mghpcc.org",
