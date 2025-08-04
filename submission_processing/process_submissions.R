@@ -12,6 +12,8 @@ library(fs)
 library(stringr)
 library(lubridate)
 
+score4cast::ignore_sigpipe()
+
 install_mc()
 
 config <- yaml::read_yaml("challenge_configuration.yaml")
