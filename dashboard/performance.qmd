@@ -15,6 +15,7 @@ source("R/plot-utils.R")
 #source("../R/ignore_sigpipes.R")
 #ignore_sigpipe()
 
+score4cast::ignore_sigpipe()
 
 ```
 
