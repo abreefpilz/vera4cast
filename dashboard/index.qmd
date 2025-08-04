@@ -53,7 +53,7 @@ s3_targets <- arrow::s3_bucket(paste0(config$targets_bucket,"/project_id=vera4ca
 #                                       variable = arrow::string(),
 #                                       observation = arrow::float()),
 #                                     skip = 1) |>
-most_recent <- read_csv('https://amnh1.osn.mghpcc.org/bio230121-bucket01/vera4cast/targets/project_id=vera4cast/duration=P1D/daily-insitu-targets.csv.gz') |> 
+most_recent_targets <- read_csv('https://amnh1.osn.mghpcc.org/bio230121-bucket01/vera4cast/targets/project_id=vera4cast/duration=P1D/daily-insitu-targets.csv.gz') |> 
   filter(project_id == config$project_id) |> 
     summarize(max = max(datetime),
               min = min(datetime)) |> 
