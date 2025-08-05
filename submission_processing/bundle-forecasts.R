@@ -16,11 +16,7 @@ mc_alias_set("osn", "amnh1.osn.mghpcc.org", Sys.getenv("OSN_KEY"), Sys.getenv("O
 
 duckdb_secrets(endpoint = "amnh1.osn.mghpcc.org", key = Sys.getenv("OSN_KEY"), secret = Sys.getenv("OSN_SECRET"), bucket = "bio230121-bucket01")
 
-# bundled count at start
-open_dataset("s3://bio230121-bucket01/vera4cast/forecasts/bundled-parquet",
-             s3_endpoint = "amnh1.osn.mghpcc.org",
-             anonymous = TRUE) |>
-  count()
+
 
 remote_path <- "osn/bio230121-bucket01/vera4cast/forecasts/parquet/project_id=vera4cast/"
 contents <- mc_ls(remote_path, recursive = TRUE, details = TRUE)
@@ -33,7 +29,13 @@ model_paths <-
   str_replace("^osn\\/", "s3://") |>
   unique()
 
+print(model_paths)
 
+# bundled count at start
+open_dataset("s3://bio230121-bucket01/vera4cast/forecasts/bundled-parquet",
+             s3_endpoint = "amnh1.osn.mghpcc.org",
+             anonymous = TRUE) |>
+  count()
 
 remove_dir <- function(path) {
   tryCatch(
@@ -101,6 +103,12 @@ bundle_me <- function(path) {
   #  previous_n <- open_dataset("tmp_old.parquet") |> count() |> pull(n)
   #  stopifnot(previous_n - filtered_n == 0)
 
+  ## no partition levels left so we must write to an explicit .parquet
+  bundled_dir <- bundled_path |> str_replace(fixed("s3://"), "osn/") |> mc_ls(details = TRUE)
+  mc_bundled_path <- bundled_dir |> filter(!is_folder) |> pull(path)
+  stopifnot(length(mc_bundled_path) == 1)
+  bundled_path <- mc_bundled_path |> str_replace(fixed("osn/"), fixed("s3://"))
+
   union_all(old, new) |>
     write_dataset(bundled_path,
                   options = list("PER_THREAD_OUTPUT false"))
@@ -120,39 +128,42 @@ bundle_me <- function(path) {
   invisible(0)
 }
 
-# try_bundles <- function(path) {
-#   tryCatch(
-#     {
-#       bundle_me(path)
-#       message('bundling successful...')
-#     },
-#     error = function(cond) {
-#       message("Bundling failed with an error...")
-#       message("Here's the original error message:")
-#       message(conditionMessage(cond))
-#       # Choose a return value in case of error
-#       NA
-#     },
-#     warning = function(cond) {
-#       message('Bundling ran into a warning...')
-#       message("Here's the original warning message:")
-#       message(conditionMessage(cond))
-#       # Choose a return value in case of warning
-#       NULL
-#     },
-#     finally = {
-#       # NOTE:
-#       # Here goes everything that should be executed at the end,
-#       # regardless of success or error.
-#       # If you want more than one expression to be executed, then you
-#       # need to wrap them in curly brackets ({...}); otherwise you could
-#       # just have written 'finally = <expression>'
-#       message("Finished the delete portion...")
-#     }
-#   )
+
+# We use future_apply framework to show progress while being robust to OOM kils.
+# We are not actually running on multi-core, which would be RAM-inefficient
+
+# future::plan(future::sequential)
+#
+# safe_bundles <- function(xs) {
+#   p <- progressor(along = xs)
+#   future_lapply(xs, function(x, ...) {
+#     out <- bundle_me(x)
+#     p(sprintf("x=%s", x))
+#     out
+#   },  future.seed = TRUE)
 # }
 
+# bench::bench_time({
+#   out <- safe_bundles(model_paths)
+# })
+# print(out)
 
 bench::bench_time({
   out <- purrr::map(model_paths, bundle_me)
 })
+
+# bundled count at end
+count <- open_dataset("s3://bio230121-bucket01/vera4cast/forecasts/bundled-parquet",
+                      s3_endpoint = "amnh1.osn.mghpcc.org",
+                      anonymous = TRUE) |>
+  count()
+print(count)
+
+
+most_recent <- open_dataset("s3://bio230121-bucket01/vera4cast/forecasts/bundled-parquet",
+                            s3_endpoint = "amnh1.osn.mghpcc.org",
+                            anonymous = TRUE) |>
+  group_by(model_id, variable) |>
+  summarise(most_recent = max(reference_datetime)) |>
+  arrange(desc(most_recent))
+print(most_recent)

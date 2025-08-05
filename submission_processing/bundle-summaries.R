@@ -91,29 +91,35 @@ bundle_me <- function(path) {
     str_replace(fixed("forecasts/summaries"), "forecasts/bundled-summaries")
 
   open_dataset(path, conn = con, unify_schemas = TRUE) |> write_dataset("tmp_new.parquet")
+  open_dataset(bundled_path, conn = con, unify_schemas = TRUE) |> write_dataset("tmp_old.parquet")
 
-  files_exist <- minioclient::mc_ls(bundled_path |> str_replace(fixed("s3://"), "osn/"))
-  files_exist <- files_exist[files_exist != "/"]
+  union_all(old, new) |>
+    write_dataset(bundled_path,
+                  options = list("PER_THREAD_OUTPUT false"))
 
-  if (length(files_exist) > 0){
-    print('previous bundle files exist')
-    open_dataset(bundled_path, conn = con, unify_schemas = TRUE) |> write_dataset("tmp_old.parquet")
 
-    # these are both local, so we can stream back.
-    new <- open_dataset("tmp_new.parquet")
-    old <- open_dataset("tmp_old.parquet")
+  #files_exist <- minioclient::mc_ls(bundled_path |> str_replace(fixed("s3://"), "osn/"))
+  #files_exist <- files_exist[files_exist != "/"]
 
-    union_all(old, new) |>
-      write_dataset(bundled_path,
-                    options = list("PER_THREAD_OUTPUT false"))
-  } else {
-    print('no bundle files exist')
-    new <- open_dataset("tmp_new.parquet")
-
-    new |>
-      write_dataset(bundled_path,
-                    options = list("PER_THREAD_OUTPUT false"))
-  }
+  # if (length(files_exist) > 0){
+  #  print('previous bundle files exist')
+  #  open_dataset(bundled_path, conn = con, unify_schemas = TRUE) |> write_dataset("tmp_old.parquet")
+  #
+  #   #these are both local, so we can stream back.
+  #   new <- open_dataset("tmp_new.parquet")
+  #   old <- open_dataset("tmp_old.parquet")
+  #
+  #   union_all(old, new) |>
+  #     write_dataset(bundled_path,
+  #                   options = list("PER_THREAD_OUTPUT false"))
+  # } else {
+  #   print('no bundle files exist')
+  #   new <- open_dataset("tmp_new.parquet")
+  #
+  #   new |>
+  #     write_dataset(bundled_path,
+  #                   options = list("PER_THREAD_OUTPUT false"))
+  # }
 
   #We should now archive anything we have bundled:
 
