@@ -33,7 +33,12 @@ s3 <- arrow::s3_bucket(paste0(config$forecasts_bucket, "/bundled-summaries/proje
 
 s3_scores <- arrow::s3_bucket(file.path(paste0(config$scores_bucket), "bundled-parquet"), endpoint_override = config$endpoint, anonymous = TRUE)
 
-reference_datetimes <- arrow::open_dataset(s3) |> 
+reference_datetimes <-   duckdbfs::open_dataset(paste0("s3://",config$forecasts_bucket,
+                                                     "/bundled-summaries/project_id=", 
+                                                     config$project_id, "/duration=P1D"),
+                                              s3_endpoint = "amnh1.osn.mghpcc.org",
+                                              anonymous = TRUE) |> 
+  #arrow::open_dataset(s3) |> 
   dplyr::group_by(variable) |> 
   #dplyr::mutate(reference_datetime_max = lubridate::as_datetime(as.Date(reference_datetime_max))) |> 
   dplyr::summarize(reference_datetime_max = max(reference_datetime)) |> 
@@ -50,7 +55,12 @@ cutoff <- as.character(Sys.Date() - 30)
 
 sites <- readr::read_csv(paste0("../", config$site_table), show_col_types = FALSE)
 
-df <- arrow::open_dataset(s3) |> 
+df <- duckdbfs::open_dataset(paste0("s3://",config$forecasts_bucket,
+                                                     "/bundled-summaries/project_id=",
+                                                     config$project_id, "/duration=P1D"),
+                                              s3_endpoint = "amnh1.osn.mghpcc.org",
+                                              anonymous = TRUE)
+  #arrow::open_dataset(s3) |> 
   # arrow::open_dataset(arrow::s3_bucket(config$summaries_bucket, endpoint_override = config$endpoint, anonymous = TRUE)) |> 
   # dplyr::filter(duration == 'P1D') |>
   filter(str_detect(model_id, "example", negate = TRUE)) |>
