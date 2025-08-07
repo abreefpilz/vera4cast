@@ -31,6 +31,7 @@ model_paths <-
   str_replace("^osn\\/", "s3://") |>
   unique()
 
+print(length(model_paths))
 
 
 # bundled count at start
@@ -73,7 +74,7 @@ process_me <- function(path) {
 }
 
 
-model_paths <- model_paths[1001:1300]
+model_paths <- model_paths[1001:length(model_paths)]
 
 # We use future_apply framework to show progress while being robust to OOM kils.
 # We are not actually running on multi-core, which would be RAM-inefficient
