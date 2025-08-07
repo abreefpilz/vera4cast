@@ -73,7 +73,7 @@ process_me <- function(path) {
 }
 
 
-model_paths <- model_paths[601:800]
+model_paths <- model_paths[801:1000]
 
 # We use future_apply framework to show progress while being robust to OOM kils.
 # We are not actually running on multi-core, which would be RAM-inefficient
