@@ -127,7 +127,8 @@ if(length(submissions) > 0){
                                                        "duration",
                                                        "variable",
                                                        "model_id",
-                                                       "reference_date"))
+                                                       "reference_date"),
+                                      options = list("PER_THREAD_OUTPUT false"))
 
         s3$CreateDir(paste0("summaries"))
         fc |>
@@ -146,7 +147,8 @@ if(length(submissions) > 0){
                                                    "duration",
                                                    "variable",
                                                    "model_id",
-                                                   "reference_date"))
+                                                   "reference_date"),
+                                  options = list("PER_THREAD_OUTPUT false"))
 
         submission_timestamp <- paste0(submission_dir,"/T", time_stamp, "_", basename(submissions[i]))
         fs::file_copy(submissions[i], submission_timestamp)
