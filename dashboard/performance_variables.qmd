@@ -59,19 +59,21 @@ df <- duckdbfs::open_dataset(paste0("s3://",config$forecasts_bucket,
                                                      "/bundled-summaries/project_id=",
                                                      config$project_id, "/duration=P1D"),
                                               s3_endpoint = "amnh1.osn.mghpcc.org",
-                                              anonymous = TRUE)
+                                              anonymous = TRUE) |> 
   #arrow::open_dataset(s3) |> 
   # arrow::open_dataset(arrow::s3_bucket(config$summaries_bucket, endpoint_override = config$endpoint, anonymous = TRUE)) |> 
   # dplyr::filter(duration == 'P1D') |>
   filter(str_detect(model_id, "example", negate = TRUE)) |>
-  left_join(reference_datetimes, by = "variable") |> 
+  left_join(reference_datetimes, by = "variable", copy = TRUE) |> 
   filter(reference_datetime == reference_datetime_max) |>
-  left_join(sites, by = "site_id") |> 
+  left_join(sites, by = "site_id", copy = TRUE) |> 
   filter(site_id %in% sites$site_id) |> 
   # mutate(reference_datetime = lubridate::as_datetime(reference_datetime),
   #        datetime = lubridate::as_datetime(datetime)) |> 
   filter((depth_m == 1.6 & site_id == "fcre") | (depth_m == 1.5 & site_id == "bvre") | is.na(depth_m) |
-         depth_m == 0.1, lubridate::as_date(datetime) > lubridate::as_date(reference_datetime)) |> 
+         #depth_m == 0.1, lubridate::as_date(datetime) > lubridate::as_date(reference_datetime)) |> 
+          depth_m == 0.1, datetime > reference_datetime) |> 
+
   filter(model_id %in% c('climatology','persistenceRW')) |> 
   collect()
 
