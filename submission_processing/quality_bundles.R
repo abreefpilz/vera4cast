@@ -1,4 +1,5 @@
 remotes::install_github("cboettig/duckdbfs", upgrade=FALSE)
+install.packages('bench')
 
 library(tidyverse)
 library(duckdbfs)
