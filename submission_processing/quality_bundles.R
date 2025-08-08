@@ -46,7 +46,7 @@ print(count)
 
 process_me <- function(path) {
 
-  print(path)
+  #print(path)
 
   con = duckdbfs::cached_connection(tempfile())
   duckdb_secrets(endpoint = "amnh1.osn.mghpcc.org", key = Sys.getenv("OSN_KEY"), secret = Sys.getenv("OSN_SECRET"), bucket = "bio230121-bucket01")
