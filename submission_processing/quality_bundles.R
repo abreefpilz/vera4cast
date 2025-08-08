@@ -23,7 +23,8 @@ duckdb_secrets(endpoint = "amnh1.osn.mghpcc.org", key = Sys.getenv("OSN_KEY"), s
 
 remote_path <- "osn/bio230121-bucket01/vera4cast/forecasts/bundled-parquet/project_id=vera4cast/"
 contents <- mc_ls(remote_path, recursive = TRUE, details = TRUE)
-data_paths <- contents |> filter(!is_folder) |> pull(path)
+#data_paths <- contents |> filter(!is_folder) |> pull(path)
+data_paths <- contents |> filter(is_folder) |> pull(path)
 
 # model paths are paths with at least one reference_datetime containing data files
 model_paths <-
@@ -50,9 +51,9 @@ process_me <- function(path) {
   con = duckdbfs::cached_connection(tempfile())
   duckdb_secrets(endpoint = "amnh1.osn.mghpcc.org", key = Sys.getenv("OSN_KEY"), secret = Sys.getenv("OSN_SECRET"), bucket = "bio230121-bucket01")
 
-  n_start <- open_dataset(path, conn = con, recursive = FALSE)  |> count() |> pull(n)
+  n_start <- open_dataset(path, conn = con, recursive = TRUE)  |> count() |> pull(n)
 
-  open_dataset(path, conn = con, recursive = FALSE) |>
+  open_dataset(path, conn = con, recursive = TRUE) |>
     filter( !is.na(model_id),
             !is.na(parameter),
             !is.na(prediction)) |>
@@ -63,9 +64,17 @@ process_me <- function(path) {
 
   if (n_now != n_start) {
     print(paste("fixing", path))
+
+    mc_path_fix <- path |> str_replace("s3://", "osn\\/")
+
+    ## clear bundled path
+    minioclient::mc_rm(mc_path_fix, recursive = TRUE)
+
+    write_path <- paste0(path,'data_0.parquet')
+
     # special filters should not be needed on bundled copy
     open_dataset("tidy_bundle.parquet", conn = con) |>
-      write_dataset(path,
+      duckdbfs::write_dataset(write_path,
                     options = list("PER_THREAD_OUTPUT false"))
   }
 
@@ -74,7 +83,7 @@ process_me <- function(path) {
 }
 
 
-model_paths <- model_paths[1001:length(model_paths)]
+model_paths <- model_paths[1:100]
 
 # We use future_apply framework to show progress while being robust to OOM kils.
 # We are not actually running on multi-core, which would be RAM-inefficient
