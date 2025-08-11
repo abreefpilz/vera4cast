@@ -21,6 +21,7 @@ jobs:
       - name: Download
         shell: Rscript {0}
         run: |
+          remotes::install_version("arrow", version = "20.0.0")
           source("drivers/ensemble_forecasts.R")
 
       - name: Healthcheck
