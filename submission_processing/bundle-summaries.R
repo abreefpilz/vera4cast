@@ -14,13 +14,13 @@ handlers(global = TRUE)
 handlers("cli")
 
 
-# bundled count at start
-count <- open_dataset("s3://bio230121-bucket01/vera4cast/forecasts/bundled-summaries",
-                      s3_endpoint = "amnh1.osn.mghpcc.org",
-                      anonymous = TRUE) |>
-  count()
-
-print(count)
+# # bundled count at start
+# count <- open_dataset("s3://bio230121-bucket01/vera4cast/forecasts/bundled-summaries",
+#                       s3_endpoint = "amnh1.osn.mghpcc.org",
+#                       anonymous = TRUE) |>
+#   count()
+#
+# print(count)
 
 install_mc()
 mc_alias_set("osn", "amnh1.osn.mghpcc.org", Sys.getenv("OSN_KEY"), Sys.getenv("OSN_SECRET"))
@@ -29,7 +29,7 @@ mc_alias_set("osn", "amnh1.osn.mghpcc.org", Sys.getenv("OSN_KEY"), Sys.getenv("O
 duckdb_secrets(endpoint = "amnh1.osn.mghpcc.org", key = Sys.getenv("OSN_KEY"), secret = Sys.getenv("OSN_SECRET"), bucket = "bio230121-bucket01")
 
 # bundled count at start
-open_dataset("s3://bio230121-bucket01/vera4cast/forecasts/bundled-parquet",
+open_dataset("s3://bio230121-bucket01/vera4cast/forecasts/bundled-summaries",
              s3_endpoint = "amnh1.osn.mghpcc.org",
              anonymous = TRUE) |>
   count()
@@ -46,7 +46,7 @@ model_paths <-
   str_replace("^osn\\/", "s3://") |>
   unique()
 
-print(model_paths)
+#print(model_paths)
 
 remove_dir <- function(path) {
   tryCatch(
@@ -92,6 +92,10 @@ bundle_me <- function(path) {
 
   open_dataset(path, conn = con, unify_schemas = TRUE) |> write_dataset("tmp_new.parquet")
   open_dataset(bundled_path, conn = con, unify_schemas = TRUE) |> write_dataset("tmp_old.parquet")
+
+  # these are both local, so we can stream back.
+  new <- open_dataset("tmp_new.parquet")
+  old <- open_dataset("tmp_old.parquet")
 
   union_all(old, new) |>
     write_dataset(bundled_path,

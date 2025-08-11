@@ -74,7 +74,7 @@ bundle_me <- function(path) {
 
   print(path)
   con = duckdbfs::cached_connection(tempfile())
-  duckdb_secrets(endpoint = "amnh1.osn.mghpcc.org", key = Sys.getenv("OSN_KEY"), secret = Sys.getenv("OSN_SECRET"), bucket = "bio230121-bucket01")
+  duckdbfs::duckdb_secrets(endpoint = "amnh1.osn.mghpcc.org", key = Sys.getenv("OSN_KEY"), secret = Sys.getenv("OSN_SECRET"), bucket = "bio230121-bucket01")
   bundled_path <- path |> str_replace(fixed("forecasts/parquet"), "forecasts/bundled-parquet")
 
   #print('write new')
