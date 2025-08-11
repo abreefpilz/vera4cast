@@ -1,3 +1,5 @@
+library(arrow)
+
 source("drivers/download_ensemble_forecast.R")
 source("drivers/submit_met_forecast.R")
 
