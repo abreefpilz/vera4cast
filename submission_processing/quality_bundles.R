@@ -46,7 +46,7 @@ print(count)
 
 process_me <- function(path) {
 
-  print(path)
+  #print(path)
 
   con = duckdbfs::cached_connection(tempfile())
   duckdb_secrets(endpoint = "amnh1.osn.mghpcc.org", key = Sys.getenv("OSN_KEY"), secret = Sys.getenv("OSN_SECRET"), bucket = "bio230121-bucket01")
@@ -83,7 +83,7 @@ process_me <- function(path) {
 }
 
 
-model_paths <- model_paths[1:100]
+#model_paths <- model_paths[101:200]
 
 # We use future_apply framework to show progress while being robust to OOM kils.
 # We are not actually running on multi-core, which would be RAM-inefficient
