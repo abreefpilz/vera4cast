@@ -1,5 +1,6 @@
 source("drivers/download_seasonal_forecast.R")
 library(tidyverse)
+library(arrow)
 
 download_seasonal_forecast()
 
