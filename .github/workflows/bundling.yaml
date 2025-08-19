@@ -25,8 +25,8 @@ jobs:
           remotes::install_deps(".", dep=TRUE, upgrade=TRUE)
           install.packages(c("future.apply", "progressr", "minioclient", "bench", "glue", "fs"))
 
-      #- name: Bundle forecasts
-      #  run: r submission_processing/bundle-forecasts.R
+      - name: Bundle forecasts
+        run: r submission_processing/bundle-forecasts.R
 
       - name: Bundle summaries
         run: r submission_processing/bundle-summaries.R
