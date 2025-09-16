@@ -7,6 +7,8 @@ library(progress)
 library(bench)
 library(minioclient)
 
+score4cast::ignore_sigpipe()
+
 #install_mc()
 #mc_alias_set("osn", "sdsc.osn.xsede.org", Sys.getenv("OSN_KEY"), Sys.getenv("OSN_SECRET"))
 #fs::dir_create("new_scores")
