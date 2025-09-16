@@ -1,6 +1,8 @@
 #devtools::install_version("duckdb", "1.2.2")
 remotes::install_github('cboettig/duckdbfs', upgrade = 'never')
 
+score4cast::ignore_sigpipe()
+
 library(dplyr)
 library(duckdbfs)
 library(progress)
