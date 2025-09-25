@@ -1,188 +1,133 @@
+
+# devtools::install_version("duckdb", "1.2.2")
+
+library(dplyr)
+library(duckdbfs)
+library(progress)
+library(bench)
+library(minioclient)
+
+score4cast::ignore_sigpipe()
+
+#install_mc()
+#mc_alias_set("osn", "sdsc.osn.xsede.org", Sys.getenv("OSN_KEY"), Sys.getenv("OSN_SECRET"))
+#fs::dir_create("new_scores")
+
+project <- "vera4cast"
+
+#print("Downloading bundled scores...")
+#bench::bench_time({
+#  mc_mirror("osn/bio230014-bucket01/challenges/scores/bundled-parquet",
+#            "scores/bundled-parquet", overwrite = TRUE, flags = "--retry")
+#})
+
+## Now score it.  score4cast is all in RAM, so we must score in chunks.
+## But we can chunk naturally with dplyr distinct
 library(score4cast)
-library(arrow)
+con <- duckdbfs::cached_connection(tempfile())
+duckdbfs::duckdb_secrets(endpoint = "amnh1.osn.mghpcc.org",
+                         key = Sys.getenv("OSN_KEY"),
+                         secret = Sys.getenv("OSN_SECRET"),
+                         bucket = "bio230121-bucket01/vera4cast")
 
-past_days <- 365
-n_cores <- 8
+#
+fc <- open_dataset("s3://bio230121-bucket01/vera4cast/tmp/score_me", conn=con) |>
+  filter(!is.na(model_id))
+groups <- fc |> distinct(project_id, duration, variable, model_id, family) |> collect()
+total <- nrow(groups)
 
-setwd(here::here())
+duckdbfs::close_connection(con)
+gc()
 
-Sys.setenv(AWS_ACCESS_KEY_ID=Sys.getenv("OSN_KEY"),
-           AWS_SECRET_ACCESS_KEY=Sys.getenv("OSN_SECRET"))
+#fs::dir_delete("new_scores/")
 
-ignore_sigpipe()
+score_group <- function(i, groups, project = "vera4cast") {
 
-config <- yaml::read_yaml("challenge_configuration.yaml")
 
-endpoint <- config$endpoint
+  # if we want to clear connection manually we need to re-open fc.  Maybe not necessary
+  source("scoring/R/score_joined_table.R")
+  con <- duckdbfs::cached_connection(tempfile())
+  duckdbfs::duckdb_secrets(endpoint = "amnh1.osn.mghpcc.org",
+                           key = Sys.getenv("OSN_KEY"),
+                           secret = Sys.getenv("OSN_SECRET"),
+                           bucket = "bio230121-bucket01/vera4cast")
+  fc <- duckdbfs::open_dataset("s3://bio230121-bucket01/vera4cast/tmp/score_me/**",
+                               conn=con) |>
+    dplyr::filter(!is.na(model_id))
 
-s3 <- arrow::s3_bucket(dirname(config$scores_bucket),
-                       endpoint_override = endpoint,
-                       access_key = Sys.getenv("OSN_KEY"),
-                       secret_key = Sys.getenv("OSN_SECRET"))
-
-s3$CreateDir("inventory")
-s3$CreateDir("prov")
-s3$CreateDir("scores")
-
-Sys.setenv("AWS_EC2_METADATA_DISABLED"="TRUE")
-Sys.unsetenv("AWS_DEFAULT_REGION")
-
-s3_inv <- arrow::s3_bucket(paste0(config$inventory_bucket,"/catalog/forecasts/project_id=", config$project_id), endpoint_override = endpoint)
-
-variable_duration <- arrow::open_dataset(s3_inv) |>
-  dplyr::distinct(variable, duration, project_id) |>
-  dplyr::collect()
-
-future::plan("future::multisession", workers = n_cores)
-
-#future::plan("future::sequential", workers = n_cores)
-
-furrr::future_walk(1:nrow(variable_duration), function(k, variable_duration, config, endpoint){
-
-  Sys.setenv(AWS_ACCESS_KEY_ID=Sys.getenv("OSN_KEY"),
-             AWS_SECRET_ACCESS_KEY=Sys.getenv("OSN_SECRET"))
-
-  variable <- variable_duration$variable[k]
-  duration <- variable_duration$duration[k]
-  project_id <- variable_duration$project_id[k]
-
-  print(variable_duration[k,])
-
-  s3_targets <- arrow::s3_bucket(glue::glue(config$targets_bucket,"/project_id={project_id}"), endpoint_override = endpoint)
-  s3_scores <- arrow::s3_bucket(config$scores_bucket, endpoint_override = endpoint)
-  s3_prov <- arrow::s3_bucket(config$prov_bucket, endpoint_override = endpoint)
-  s3_inv <- arrow::s3_bucket(paste0(config$inventory_bucket,"/catalog/forecasts"), endpoint_override = endpoint)
-
-  local_prov <- paste0(project_id,"-",duration,"-",variable, "-scoring_provenance.csv")
-
-  if (!(local_prov %in% s3_prov$ls())) {
-    prov_df <- dplyr::tibble(date = Sys.Date(),
-                             new_id = "start",
-                             model_id = "start",
-                             reference_date = "start",
-                             pub_date = "start")
-  }else{
-    path <- s3_prov$path(local_prov)
-    prov_df <- arrow::read_csv_arrow(path)
-  }
-
-  s3_scores_path <- s3_scores$path(glue::glue("parquet/project_id={project_id}/duration={duration}/variable={variable}"))
-
-  s3_targets <- arrow::s3_bucket(glue::glue(config$targets_bucket), endpoint_override = endpoint)
-
-  target <- arrow::open_csv_dataset(s3_targets,
-                                    schema = arrow::schema(
-                                      project_id = arrow::string(),
-                                      site_id = arrow::string(),
-                                      datetime = arrow::timestamp(unit = "ns", timezone = "UTC"),
-                                      duration = arrow::string(),
-                                      depth_m = arrow::float(), #project_specific
-                                      variable = arrow::string(),
-                                      observation = arrow::float()),
-                                    skip = 1) |>
-    dplyr::filter(variable == variable_duration$variable[k],
-                  duration == variable_duration$duration[k],
-                  project_id == variable_duration$project_id[k]) |>
-    dplyr::collect()
-
-  curr_variable <- variable
-  curr_duration <- duration
-  curr_project_id <- project_id
-
-  if (curr_variable == 'Bloom_binary_mean'){
-    groupings <- arrow::open_dataset(s3_inv) |>
-      dplyr::filter(variable == curr_variable, duration == curr_duration) |>
-      dplyr::select(-site_id) |>
-      dplyr::collect() |>
-      dplyr::filter(!(model_id %in% c('asl.met.lm', 'asl.tbats', 'asl.temp.lm', "asl.auto.arima", "asl.ets", "asl.met.lm.step"))) |> # remove ASL models for now to get scores back up
-      dplyr::distinct() |>
-      dplyr::filter(date > Sys.Date() - lubridate::days(past_days),
-                    date <= lubridate::as_date(max(target$datetime))) |>
-      dplyr::group_by(model_id, date, duration, path, endpoint) |>
-      dplyr::arrange(reference_date, pub_date) |>
-      dplyr::summarise(reference_date = paste(unique(reference_date), collapse=","),
-                       pub_date = paste(unique(pub_date), collapse=","),
-                       .groups = "drop")
-  }else{
-
-  groupings <- arrow::open_dataset(s3_inv) |>
-    dplyr::filter(variable == curr_variable, duration == curr_duration) |>
-    dplyr::select(-site_id) |>
+  # filtering join, could have used filter on duration/variable/model_id
+  new_scores <- fc |>
+    dplyr::inner_join(groups[i,], copy=TRUE,
+                      by = dplyr::join_by(project_id, duration, variable, model_id, family)
+    ) |>
     dplyr::collect() |>
+    score_joined_table()
+
+  ## Append to existing scores
+  dur <- groups$duration[i]
+  var <- groups$variable[i]
+  model <- groups$model_id[i]
+  path <- glue::glue("s3://bio230121-bucket01/vera4cast",
+                     "/scores/bundled-parquet/",
+                     "project_id={project}/duration={dur}/",
+                     "variable={var}/model_id={model}")
+
+
+  log <- glue::glue("Joining to existing scores of variable {var} for model {model}")
+  message(log)
+  #readr::write_lines(log, "new-scoring.log", append=TRUE)
+
+  new_scores <- duckdbfs::as_dataset(new_scores, conn = con)
+  bundled_scores <- duckdbfs::open_dataset(path, conn = con) |>
+    dplyr::anti_join(new_scores,
+                     by = dplyr::join_by(reference_datetime, site_id, datetime,
+                                         family, pub_datetime, observation,
+                                         crps, logs, mean, median, sd,
+                                         quantile97.5, quantile02.5, quantile90, quantile10,
+                                         duration, model_id, project_id, variable)) |>
+    dplyr::compute()
+  new_scores <- dplyr::union_all(bundled_scores, new_scores)
+
+  new_scores |>
     dplyr::distinct() |>
-    dplyr::filter(date > Sys.Date() - lubridate::days(past_days),
-                  date <= lubridate::as_date(max(target$datetime))) |>
-    dplyr::group_by(model_id, date, duration, path, endpoint) |>
-    dplyr::arrange(reference_date, pub_date) |>
-    dplyr::summarise(reference_date = paste(unique(reference_date), collapse=","),
-                     pub_date = paste(unique(pub_date), collapse=","),
-                     .groups = "drop")
-  }
+    dplyr::group_by(project_id, duration, variable, model_id) |>
+    duckdbfs::write_dataset("s3://bio230121-bucket01/vera4cast/scores/bundled-parquet/")
 
-  if(nrow(groupings) > 0){
 
-    new_prov <- purrr::map_dfr(1:nrow(groupings), function(j, groupings, prov_df, s3_scores_path, curr_variable){
+  duckdbfs::close_connection(con)
+  gc()
+}
 
-      group <- groupings[j,]
-      ref <- group$date
 
-      tg <- target |>
-        dplyr::mutate(depth_m = ifelse(!is.na(depth_m), round(depth_m, 2), depth_m)) |>  #project_specific
-        dplyr::filter(lubridate::as_date(datetime) >= ref,
-                      lubridate::as_date(datetime) < ref+lubridate::days(1))
+print("Computing new scores....")
+pb <- progress_bar$new(format = "  scoring [:bar] :percent in :elapsed",
+                       total = total, clear = FALSE, width= 60)
 
-      id <- rlang::hash(list(group[, c("model_id","reference_date","date","pub_date")],  tg))
 
-      if (!(score4cast:::prov_has(id, prov_df, "new_id"))){
+# If we have lots to score this can take a while
+for (i in seq_along(row_number(groups))) {
+  pb$tick()
+  print(paste("Scoring model:", groups$model_id[i], "variable:", groups$variable[i]))
 
-        print(group)
+  go <- purrr::safely( \() callr::r_safe(score_group, args = list(i = i, groups = groups)) )
+  go()
+}
 
-        reference_dates <- unlist(stringr::str_split(group$reference_date, ","))
+# check RAM use for: Scoring model: persistenceRW variable: nee
 
-        ref_upper <- (lubridate::as_date(ref)+lubridate::days(1))
-        fc <- arrow::open_dataset(paste0("s3://anonymous@",group$path,"/model_id=",group$model_id,"?endpoint_override=",group$endpoint)) |>
-          dplyr::filter(reference_date %in% reference_dates,
-                        lubridate::as_date(datetime) >= ref,
-                        lubridate::as_date(datetime) < ref_upper) |>
-          dplyr::mutate(model_id = group$model_id) |>
-          dplyr::collect()
+# checks that we have no corruption
+checks <- function() {
+  duckdbfs::duckdb_secrets(endpoint = "amnh1.osn.mghpcc.org",
+                           key = Sys.getenv("OSN_KEY"),
+                           secret = Sys.getenv("OSN_SECRET"),
+                           bucket = "bio230121-bucket01/vera4cast")
+  open_dataset("s3://bio230121-bucket01/vera4cast/tmp/bundled-parquet/") |> count()
+  open_dataset("s3://bio230121-bucket01/vera4cast/tmp/bundled-parquet/") |>
+    distinct(duration, variable, model_id) |> collect()
+  open_dataset("s3://bio230121-bucket01/vera4cast/tmp/bundled-parquet/") |>
+    summarise(first_fc = min(reference_datetime), last_fc = max(reference_datetime),
+              first_prediction = min(datetime), last_prediction = max(datetime))
 
-        fc |>
-          dplyr::mutate(depth_m = ifelse(!is.na(depth_m), round(depth_m, 2), depth_m)) |> #project_specific
-          dplyr::mutate(variable = curr_variable,
-                        project_id = curr_project_id) |>
-          ## check to ensure gfs_seamless is not assigned to any non-meteo variables...drop values if any are found
-          #dplyr::filter(!(model_id == 'gfs_seamless' & !(variable %in% c('AirTemp_C_mean', "BP_kPa_mean", "RH_percent_mean", "Rain_mm_sum")))) |>
-          #If for some reason, a forecast has multiple values for a parameter from a specific forecast, then average
-          dplyr::summarise(prediction = mean(prediction), .by = dplyr::any_of(c("site_id", "datetime", "reference_datetime", "family", "depth_m",
-                                                                                "parameter", "pub_datetime", "reference_date", "variable", "project_id"))) |>
-          dplyr::filter(!(family == 'bernoulli' & variable == 'Chla_ugL_mean')) |>
-          score4cast::crps_logs_score(tg, extra_groups = c("depth_m","project_id")) |> #project_specific
-          #score4cast::crps_logs_score(tg, extra_groups = c("project_id")) |> #project_specific
-          dplyr::mutate(date = group$date,
-                        model_id = group$model_id) |>
-          dplyr::select(-variable,-project_id) |>
-          arrow::write_dataset(s3_scores_path,
-                               partitioning = c("model_id", "date"))
+}
 
-        curr_prov <- dplyr::tibble(date = Sys.Date(),
-                                   new_id = id,
-                                   model_id = group$model_id,
-                                   reference_date = group$reference_date,
-                                   pub_date = group$pub_date)
-      }else{
-        curr_prov <- NULL
-      }
-    },
-    groupings, prov_df, s3_scores_path,curr_variable)
-
-    prov_df <- dplyr::bind_rows(prov_df, new_prov)
-    arrow::write_csv_arrow(prov_df, s3_prov$path(local_prov))
-  }
-},
-variable_duration,  config, endpoint
-)
-
-## Call healthcheck
-RCurl::url.exists("https://hc-ping.com/931decf3-9674-4498-a2fc-938a4321ea2e", timeout = 5)
-
+#checks()

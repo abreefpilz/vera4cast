@@ -37,7 +37,7 @@ jobs:
         run: r scoring/prep_scoring.R
 
       - name: scoring
-        run: r scoring/new_scoring.R
+        run: r scoring/scoring.R
 
       - name: install curl
         run: |
