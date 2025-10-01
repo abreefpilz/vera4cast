@@ -19,7 +19,7 @@ The catalog of submitted forecasts, evaluations of the forecasts ("scores"), and
 minioclient::install_mc()
 
 minioclient::mc_alias_set("s3_store",
-                          'renc.osn.xsede.org',
+                          'amnh1.osn.mghpcc.org',
                           Sys.getenv("OSN_KEY"),
                           Sys.getenv("OSN_SECRET"))
 
@@ -27,7 +27,7 @@ vera_models <- minioclient::mc_ls(paste0("s3_store/bio230121-bucket01/vera4cast/
 
 model_type <- c()
 for (i in vera_models){
-  model_file <- paste0('https://renc.osn.xsede.org/bio230121-bucket01/vera4cast/metadata/model_id/',i)
+  model_file <- paste0('https://amnh1.osn.mghpcc.org/bio230121-bucket01/vera4cast/metadata/model_id/',i)
   json_output <- jsonlite::fromJSON(model_file)
   type <- json_output$model_description$type
   model_type <- append(model_type, type)
