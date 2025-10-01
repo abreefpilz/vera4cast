@@ -19,7 +19,7 @@ DBI::dbExecute(con, "SET THREADS=64;")
 #fs::dir_create("new_scores")
 
 project <- "vera4cast"
-cut_off_date <- Sys.Date() - lubridate::dmonths(6)
+cut_off_date <- Sys.Date() - lubridate::dmonths(3)
 rescore <- FALSE
 obs_key_cols <- c("project_id", "site_id", "datetime", "duration", "variable", "depth_m")
 score_key_cols <- c(obs_key_cols, "model_id", "family", "reference_datetime", "depth_m")

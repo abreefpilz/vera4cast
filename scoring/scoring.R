@@ -41,10 +41,6 @@ total <- nrow(groups)
 duckdbfs::close_connection(con)
 gc()
 
-#fs::dir_delete("new_scores/")
-
-#groups <- groups |> filter(variable == "AirTemp_C_mean")
-
 score_group <- function(i, groups, project = "vera4cast") {
 
 
