@@ -87,11 +87,13 @@ forecasts <-
   mutate(horizon = date_diff('day', as.POSIXct(reference_datetime), as.POSIXct(datetime))) |>
   filter(! (duration == "P1D" & horizon > 35))
 
+# THIS ONLY SCORES EARLIEST SUBMISSION OF A REFERENCE DATETIME.  SO A RESUBMISSION WILL NOT
+# BE SCORED.  CHANGGING slice_min(pub_datetime) to slice_max(pub_datetime) WILL SCORE THE MOST
+# RECENT SUBMITTED FORECAST
+variable_ids <- forecasts |> distinct(variable) |> collect() |> pull(variable)
 
-variable_id <- forecasts |> distinct(variable) |> collect() |> pull(model_id)
-
-for(i in 1:length(model_ids)){
-  curr_variable_id<- curr_variable_id[i]
+for(i in 1:length(variable_id)){
+  curr_variable_id<- variable_ids[i]
   forecasts |>
     filter(variable == curr_variable_id) |>
     group_by(model_id, variable, reference_datetime) |>
