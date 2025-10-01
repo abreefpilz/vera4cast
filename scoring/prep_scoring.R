@@ -26,9 +26,9 @@ score_key_cols <- c(obs_key_cols, "model_id", "family", "reference_datetime", "d
 
 
 duckdbfs::duckdb_secrets(endpoint = "amnh1.osn.mghpcc.org",
-                         key = "",
-                         secret = "",
-                         bucket = "bio230121-bucket01")
+                         key = Sys.getenv("OSN_KEY"),
+                         secret = Sys.getenv("OSN_SECRET"),
+                         bucket = "bio230121-bucket01/vera4cast")
 
 
 print('read targets files...')
