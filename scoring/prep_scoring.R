@@ -19,7 +19,7 @@ DBI::dbExecute(con, "SET THREADS=64;")
 #fs::dir_create("new_scores")
 
 project <- "vera4cast"
-cut_off_date <- Sys.Date() - lubridate::dmonths(2)
+cut_off_date <- Sys.Date() - lubridate::dmonths(3)
 rescore <- FALSE
 obs_key_cols <- c("project_id", "site_id", "datetime", "duration", "variable", "depth_m")
 score_key_cols <- c(obs_key_cols, "model_id", "family", "reference_datetime", "depth_m")
@@ -87,6 +87,19 @@ forecasts <-
   mutate(horizon = date_diff('day', as.POSIXct(reference_datetime), as.POSIXct(datetime))) |>
   filter(! (duration == "P1D" & horizon > 35))
 
+
+variable_id <- forecasts |> distinct(variable) |> collect() |> pull(model_id)
+
+for(i in 1:length(model_ids)){
+  curr_variable_id<- curr_variable_id[i]
+  forecasts |>
+    filter(variable == curr_variable_id) |>
+    group_by(model_id, variable, reference_datetime) |>
+    slice_min(pub_datetime) |>
+    ungroup() |>
+    group_by(variable) |>
+    write_dataset("s3://bio230121-bucket01/vera4cast/tmp/forecasts")
+}
 
 scores <-
   open_dataset("s3://bio230121-bucket01/vera4cast/scores/bundled-parquet/",
@@ -162,3 +175,6 @@ bench::bench_time({ # ~ 13s
     #write_dataset("s3://bio230121-bucket01/vera4cast/tmp/score_me_all")
 
 })
+
+
+
