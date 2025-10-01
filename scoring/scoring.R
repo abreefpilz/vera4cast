@@ -9,9 +9,10 @@ library(minioclient)
 
 score4cast::ignore_sigpipe()
 
-#install_mc()
-#mc_alias_set("osn", "sdsc.osn.xsede.org", Sys.getenv("OSN_KEY"), Sys.getenv("OSN_SECRET"))
-#fs::dir_create("new_scores")
+install_mc()
+mc_alias_set("osn", "amnh1.osn.mghpcc.org", Sys.getenv("OSN_KEY"), Sys.getenv("OSN_SECRET"))
+s3_dir <- mc_ls("osn/bio230121-bucket01/vera4cast/scores/bundled-parquet/")
+
 
 project <- "vera4cast"
 
@@ -33,13 +34,16 @@ duckdbfs::duckdb_secrets(endpoint = "amnh1.osn.mghpcc.org",
 #
 fc <- open_dataset("s3://bio230121-bucket01/vera4cast/tmp/score_me", conn=con) |>
   filter(!is.na(model_id))
-groups <- fc |> distinct(project_id, duration, variable, model_id, family) |> collect()
+groups <- fc |>
+  distinct(project_id, duration, variable, model_id, family) |> collect()
 total <- nrow(groups)
 
 duckdbfs::close_connection(con)
 gc()
 
 #fs::dir_delete("new_scores/")
+
+#groups <- groups |> filter(variable == "AirTemp_C_mean")
 
 score_group <- function(i, groups, project = "vera4cast") {
 
@@ -61,7 +65,11 @@ score_group <- function(i, groups, project = "vera4cast") {
                       by = dplyr::join_by(project_id, duration, variable, model_id, family)
     ) |>
     dplyr::collect() |>
+    dplyr::mutate(depth_m = ifelse(depth_m == -999999, NA, depth_m),
+                  depth_m = as.numeric(depth_m)) |>
     score_joined_table()
+
+
 
   ## Append to existing scores
   dur <- groups$duration[i]
@@ -72,21 +80,36 @@ score_group <- function(i, groups, project = "vera4cast") {
                      "project_id={project}/duration={dur}/",
                      "variable={var}/model_id={model}")
 
+  path2 <- glue::glue("osn/bio230121-bucket01/vera4cast",
+                      "/new-scores2/bundled-parquet/",
+                      "project_id={project}/duration={dur}/",
+                      "variable={var}/model_id={model}/")
+
+  #s3_dir <- mc_ls(paste0("osn/", glue::glue("bio230121-bucket01/vera4cast",
+  #                            "/new_scores/bundled-parquet/",
+  #                            "project_id={project}/duration={dur}/",
+  #                            "variable={var}/model_id={model}")))
 
   log <- glue::glue("Joining to existing scores of variable {var} for model {model}")
   message(log)
   #readr::write_lines(log, "new-scoring.log", append=TRUE)
 
   new_scores <- duckdbfs::as_dataset(new_scores, conn = con)
+
+  file_exist <- length(mc_ls(path2))
+
+  if(file_exist > 0){
+
   bundled_scores <- duckdbfs::open_dataset(path, conn = con) |>
     dplyr::anti_join(new_scores,
-                     by = dplyr::join_by(reference_datetime, site_id, datetime,
+                     by = dplyr::join_by(reference_datetime, site_id, depth_m, datetime,
                                          family, pub_datetime, observation,
                                          crps, logs, mean, median, sd,
                                          quantile97.5, quantile02.5, quantile90, quantile10,
                                          duration, model_id, project_id, variable)) |>
     dplyr::compute()
   new_scores <- dplyr::union_all(bundled_scores, new_scores)
+  }
 
   new_scores |>
     dplyr::distinct() |>
@@ -106,6 +129,7 @@ pb <- progress_bar$new(format = "  scoring [:bar] :percent in :elapsed",
 
 # If we have lots to score this can take a while
 for (i in seq_along(row_number(groups))) {
+  print(i)
   pb$tick()
   print(paste("Scoring model:", groups$model_id[i], "variable:", groups$variable[i]))
 

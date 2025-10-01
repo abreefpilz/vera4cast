@@ -25,7 +25,6 @@ b |> summarise(date = max(reference_datetime)) |> print()
 
 install_mc()
 mc_alias_set("osn", "amnh1.osn.mghpcc.org", Sys.getenv("OSN_KEY"), Sys.getenv("OSN_SECRET"))
-# mc_alias_set("nrp", "s3-west.nrp-nautilus.io", Sys.getenv("EFI_NRP_KEY"), Sys.getenv("EFI_NRP_SECRET"))
 
 duckdb_secrets(endpoint = "amnh1.osn.mghpcc.org",
                key = Sys.getenv("OSN_KEY"),
@@ -167,16 +166,3 @@ bench::bench_time({
   safe_bundles(model_paths)
 })
 
-## old method
-# bench::bench_time({
-#   out <- purrr::map(model_paths, bundle_me)
-# })
-
-
-# # bundled count at end
-# count <- open_dataset("s3://bio230121-bucket01/vera4cast/forecasts/bundled-summaries",
-#                       s3_endpoint = "amnh1.osn.mghpcc.org",
-#                       anonymous = TRUE) |>
-#   count()
-#
-# print(count)

@@ -21,8 +21,8 @@ DBI::dbExecute(con, "SET THREADS=64;")
 project <- "vera4cast"
 cut_off_date <- Sys.Date() - lubridate::dmonths(6)
 rescore <- FALSE
-obs_key_cols <- c("project_id", "site_id", "datetime", "duration", "variable")
-score_key_cols <- c(obs_key_cols, "model_id", "family", "reference_datetime")
+obs_key_cols <- c("project_id", "site_id", "datetime", "duration", "variable", "depth_m")
+score_key_cols <- c(obs_key_cols, "model_id", "family", "reference_datetime", "depth_m")
 
 
 duckdbfs::duckdb_secrets(endpoint = "amnh1.osn.mghpcc.org",
@@ -49,11 +49,11 @@ targets <-
 
   ) |>
   mutate(
-    depth_m = as.numeric(depth_m)) |>
+    depth_m = as.numeric(depth_m),
+    depth_m = ifelse(is.na(depth_m), -999999, depth_m)) |>
   filter(project_id == {project},
          datetime > {cut_off_date},
-         !is.na(observation),
-         !is.na(depth_m)
+         !is.na(observation)
   )
 
 
@@ -70,6 +70,9 @@ forecasts <-
   open_dataset("s3://bio230121-bucket01/vera4cast/forecasts/bundled-parquet/",
                s3_endpoint = "amnh1.osn.mghpcc.org",
                anonymous=TRUE) |>
+  mutate(
+    depth_m = as.numeric(depth_m),
+    depth_m = ifelse(is.na(depth_m), -999999, depth_m)) |>
   filter(project_id == {project},
          datetime > {cut_off_date},
          datetime <= {last_observed_date},
@@ -88,11 +91,13 @@ forecasts <-
 scores <-
   open_dataset("s3://bio230121-bucket01/vera4cast/scores/bundled-parquet/",
                s3_endpoint = "amnh1.osn.mghpcc.org", anonymous=TRUE) |>
+  mutate(
+    depth_m = as.numeric(depth_m),
+    depth_m = ifelse(is.na(depth_m), -999999, depth_m)) |>
   filter(project_id == {project},
          datetime > {cut_off_date},
          !is.na(observation)
   )
-
 
 tol <- 1e-2
 if(rescore) {
@@ -108,7 +113,6 @@ if(rescore) {
   ## union() won't overwrite those rows.
 
 }
-
 
 ## NOTE In theory we just want to do this:
 # bench::bench_time({
@@ -155,5 +159,6 @@ bench::bench_time({ # ~ 13s
     inner_join(targets) |> # forecast has targets available
     group_by(variable) |>
     write_dataset("s3://bio230121-bucket01/vera4cast/tmp/score_me")
+    #write_dataset("s3://bio230121-bucket01/vera4cast/tmp/score_me_all")
 
 })
