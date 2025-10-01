@@ -10,7 +10,7 @@ library(bench)
 
 library(DBI)
 con <- duckdbfs::cached_connection(tempfile())
-DBI::dbExecute(con, "SET THREADS=64;")
+#DBI::dbExecute(con, "SET THREADS=64;")
 
 #library(minioclient)
 
