@@ -92,7 +92,7 @@ forecasts <-
 # RECENT SUBMITTED FORECAST
 variable_ids <- forecasts |> distinct(variable) |> collect() |> pull(variable)
 
-for(i in 1:length(variable_id)){
+for(i in 1:length(variable_ids)){
   curr_variable_id<- variable_ids[i]
   forecasts |>
     filter(variable == curr_variable_id) |>
