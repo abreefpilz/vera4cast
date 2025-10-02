@@ -12,10 +12,16 @@ library(DBI)
 con <- duckdbfs::cached_connection(tempfile())
 #DBI::dbExecute(con, "SET THREADS=64;")
 
-#library(minioclient)
+library(minioclient)
 
-#install_mc()
-#mc_alias_set("osn", "sdsc.osn.xsede.org", Sys.getenv("OSN_KEY"), Sys.getenv("OSN_SECRET"))
+install_mc()
+mc_alias_set("osn", "amnh1.osn.mghpcc.org", Sys.getenv("OSN_KEY"), Sys.getenv("OSN_SECRET"))
+mc_rm("osn/bio230121-bucket01/vera4cast/tmp/score_me", recursive = TRUE)
+mc_rm("osn/bio230121-bucket01/vera4cast/tmp/forecasts", recursive = TRUE)
+mc_rm("osn/bio230121-bucket01/vera4cast/tmp/targets", recursive = TRUE)
+mc_rm("osn/bio230121-bucket01/vera4cast/tmp/scores", recursive = TRUE)
+
+
 #fs::dir_create("new_scores")
 
 project <- "vera4cast"
@@ -148,9 +154,9 @@ duckdbfs::duckdb_secrets(endpoint = "amnh1.osn.mghpcc.org",
 
 ## INSTEAD, we pull our subset to local disk first.
 ## This looks silly but is much better for RAM and speed!!
-bench::bench_time({ # ~ 5.4m (w/ 6mo cutoff)
-  forecasts |> group_by(variable) |> write_dataset("s3://bio230121-bucket01/vera4cast/tmp/forecasts")
-})
+#bench::bench_time({ # ~ 5.4m (w/ 6mo cutoff)
+#  forecasts |> group_by(variable) |> write_dataset("s3://bio230121-bucket01/vera4cast/tmp/forecasts")
+#})
 
 bench::bench_time({
   scores |> group_by(variable) |> write_dataset("s3://bio230121-bucket01/vera4cast/tmp/scores")
@@ -168,13 +174,16 @@ bench::bench_time({
 
 ## Magic rock&roll time: Subset unscored + targets available:
 print("Compute who needs to be scored...")
+
+mc_rm("osn/bio230121-bucket01/vera4cast/tmp/score_me", recursive = TRUE)
+
+
 bench::bench_time({ # ~ 13s
   forecasts |>
     anti_join(select(scores, all_of(score_key_cols))) |> # forecast is unscored
     inner_join(targets) |> # forecast has targets available
     group_by(variable) |>
     write_dataset("s3://bio230121-bucket01/vera4cast/tmp/score_me")
-    #write_dataset("s3://bio230121-bucket01/vera4cast/tmp/score_me_all")
 
 })
 

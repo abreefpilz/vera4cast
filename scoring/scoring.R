@@ -11,7 +11,7 @@ score4cast::ignore_sigpipe()
 
 install_mc()
 mc_alias_set("osn", "amnh1.osn.mghpcc.org", Sys.getenv("OSN_KEY"), Sys.getenv("OSN_SECRET"))
-s3_dir <- mc_ls("osn/bio230121-bucket01/vera4cast/scores/bundled-parquet/")
+s3_dir <- mc_ls("osn/bio230121-bucket01/vera4cast/scores/bundled-parquet")
 
 
 project <- "vera4cast"
@@ -77,7 +77,7 @@ score_group <- function(i, groups, project = "vera4cast") {
                      "variable={var}/model_id={model}")
 
   path2 <- glue::glue("osn/bio230121-bucket01/vera4cast",
-                      "/new-scores2/bundled-parquet/",
+                      "/scores/bundled-parquet/",
                       "project_id={project}/duration={dur}/",
                       "variable={var}/model_id={model}/")
 
@@ -94,7 +94,12 @@ score_group <- function(i, groups, project = "vera4cast") {
 
   file_exist <- length(mc_ls(path2))
 
+  print(path2)
+  print(file_exist)
+
   if(file_exist > 0){
+
+  print("file exists")
 
   bundled_scores <- duckdbfs::open_dataset(path, conn = con) |>
     dplyr::anti_join(new_scores,
@@ -110,7 +115,7 @@ score_group <- function(i, groups, project = "vera4cast") {
   new_scores |>
     dplyr::distinct() |>
     dplyr::group_by(project_id, duration, variable, model_id) |>
-    duckdbfs::write_dataset("s3://bio230121-bucket01/vera4cast/scores/bundled-parquet/")
+    duckdbfs::write_dataset("s3://bio230121-bucket01/vera4cast/scores/bundled-parquet")
 
 
   duckdbfs::close_connection(con)
@@ -129,8 +134,10 @@ for (i in seq_along(row_number(groups))) {
   pb$tick()
   print(paste("Scoring model:", groups$model_id[i], "variable:", groups$variable[i]))
 
-  go <- purrr::safely( \() callr::r_safe(score_group, args = list(i = i, groups = groups)) )
-  go()
+  score_group(i, groups, project = "vera4cast")
+
+  #go <- purrr::safely( \() callr::r_safe(score_group, args = list(i = i, groups = groups)) )
+  #go()
 }
 
 # check RAM use for: Scoring model: persistenceRW variable: nee
