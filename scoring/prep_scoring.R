@@ -175,9 +175,6 @@ bench::bench_time({
 ## Magic rock&roll time: Subset unscored + targets available:
 print("Compute who needs to be scored...")
 
-mc_rm("osn/bio230121-bucket01/vera4cast/tmp/score_me", recursive = TRUE)
-
-
 bench::bench_time({ # ~ 13s
   forecasts |>
     anti_join(select(scores, all_of(score_key_cols))) |> # forecast is unscored
