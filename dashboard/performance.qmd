@@ -51,6 +51,9 @@ reference_datetimes <-
 #   dplyr::summarize(reference_datetime_max = max(reference_datetime)) |>  
 #   dplyr::collect()
 
+reference_datetimes <- reference_datetimes |> 
+  mutate(reference_datetime_max = reference_datetime_max - lubridate::days(1))
+
 cutoff <- as.character(Sys.Date() - 30)
 
 sites <- readr::read_csv(paste0("../", config$site_table), show_col_types = FALSE)
