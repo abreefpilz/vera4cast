@@ -70,7 +70,7 @@ find_depths <- function(data_file, # data_file = the file of most recent data ei
                                          ceiling(max(long$Depth_m, na.rm = T)), 0.25))
 
 
-    long_depth <- long |>
+    long_depth <- long_w_depth |>
       dplyr::mutate(sensor_depth = Depth_m-Offset) |>
       #find the depth of the sensor using the specified offset column
       dplyr::mutate(rounded_depth = round(sensor_depth,
