@@ -11,6 +11,13 @@ find_depths <- function(data_file, # data_file = the file of most recent data ei
                         bin_width = 0.25, # bin width in m
                         wide_data = F) { # data will be in the wide format with observations above the water already removed
 
+  data_file = "https://raw.githubusercontent.com/FLARE-forecast/BVRE-data/refs/heads/bvre-platform-data-qaqc/bvre-waterquality_L1.csv"
+  depth_offset = "https://raw.githubusercontent.com/FLARE-forecast/BVRE-data/refs/heads/bvre-platform-data-qaqc/BVR_Depth_offsets.csv"
+  output = NULL
+  round_digits = 2
+  bin_width = 0.25
+  wide_data = F
+
   # Read in files if data file is a character. If not rename data_file to data
   if(is.character(data_file)){
     data <- readr::read_csv(data_file, show_col_types = F)
@@ -114,7 +121,7 @@ find_depths <- function(data_file, # data_file = the file of most recent data ei
     # only select the columns you want
     final_depths <- long_depth |>
       dplyr::filter(!is.na(observation)) |> # take out readings that are NA
-      dplyr::filter(!is.na(sensor_depth)) # remove observations if there is no depth associated with it
+      dplyr::filter(!is.na(sensor_depth)) |> # remove observations if there is no depth associated with it
       dplyr::mutate(Depth_m = round(Depth_m, round_digits)) |>
       dplyr::select(Reservoir, Site, Depth_m,
                     DateTime, variable,
