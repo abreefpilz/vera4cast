@@ -11,13 +11,6 @@ find_depths <- function(data_file, # data_file = the file of most recent data ei
                         bin_width = 0.25, # bin width in m
                         wide_data = F) { # data will be in the wide format with observations above the water already removed
 
-  data_file = "https://raw.githubusercontent.com/FLARE-forecast/BVRE-data/refs/heads/bvre-platform-data-qaqc/bvre-waterquality_L1.csv"
-  depth_offset = "https://raw.githubusercontent.com/FLARE-forecast/BVRE-data/refs/heads/bvre-platform-data-qaqc/BVR_Depth_offsets.csv"
-  output = NULL
-  round_digits = 2
-  bin_width = 0.25
-  wide_data = F
-
   # Read in files if data file is a character. If not rename data_file to data
   if(is.character(data_file)){
     data <- readr::read_csv(data_file, show_col_types = F)
