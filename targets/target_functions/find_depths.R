@@ -114,7 +114,7 @@ find_depths <- function(data_file, # data_file = the file of most recent data ei
     # only select the columns you want
     final_depths <- long_depth |>
       dplyr::filter(!is.na(observation)) |> # take out readings that are NA
-      dplyr::filter(!is.na(sensor_depth)) # remove observations if there is no depth associated with it
+      dplyr::filter(!is.na(sensor_depth)) |> # remove observations if there is no depth associated with it
       dplyr::mutate(Depth_m = round(Depth_m, round_digits)) |>
       dplyr::select(Reservoir, Site, Depth_m,
                     DateTime, variable,
